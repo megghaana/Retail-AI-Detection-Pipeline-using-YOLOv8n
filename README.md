@@ -465,19 +465,4 @@ The file `generate_visualizations.py` can be used specifically to create these s
 - `GET /health`
 - `POST /group`
 
-## Submission Notes
 
-This repository is submission-ready as a working prototype that demonstrates:
-
-- modular pipeline design
-- product detection
-- grouping logic
-- visualization output
-- JSON-based communication between blocks
-
-For the final submission zip, include:
-
-- all relevant scripts
-- this project folder
-- sample output visualizations
-- this README with local setup and documentation
