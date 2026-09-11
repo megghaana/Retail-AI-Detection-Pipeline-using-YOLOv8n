@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetailVision · AI Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #00ff88;
+    --accent2: #7c6af7;
+    --accent3: #ff6b35;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --danger: #ff4040;
+    --card-bg: #13131c;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* HEADER */
+  header {
+    padding: 32px 0 24px;
+    display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace; font-size: 18px; font-weight: 700;
+    color: #000; flex-shrink: 0;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  .badge {
+    margin-left: auto; background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.25);
+    color: var(--accent); font-size: 0.7rem; font-family: 'Space Mono', monospace;
+    padding: 4px 10px; border-radius: 20px; letter-spacing: 0.05em;
+  }
+
+  /* PIPELINE DIAGRAM */
+  .pipeline-bar {
+    display: flex; align-items: center; gap: 0;
+    padding: 20px 0; overflow-x: auto;
+  }
+  .pipe-step {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; white-space: nowrap;
+    font-size: 0.75rem; font-family: 'Space Mono', monospace;
+    color: var(--muted); transition: all 0.3s;
+  }
+  .pipe-step.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(0,255,136,0.15); }
+  .pipe-step.done { border-color: var(--accent2); color: var(--accent2); }
+  .pipe-arrow {
+    font-size: 1.1rem; color: var(--border); padding: 0 8px; flex-shrink: 0;
+  }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    padding: 24px 0;
+  }
+  @media(max-width:700px) { .main-grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-title { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .panel-body { padding: 18px; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 10px;
+    padding: 32px 20px; text-align: center; cursor: pointer;
+    transition: all 0.3s; position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(0,255,136,0.03); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+  .upload-zone p { font-size: 0.85rem; color: var(--muted); }
+  .upload-zone strong { color: var(--text); }
+
+  /* PREVIEW */
+  #preview-container { display: none; }
+  #preview-img { width: 100%; border-radius: 8px; max-height: 280px; object-fit: contain; background: #000; }
+
+  /* PARAMS */
+  .param-row { display: flex; gap: 12px; margin-top: 12px; }
+  .param-field { flex: 1; }
+  .param-field label { display: block; font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; font-family: 'Space Mono', monospace; }
+  .param-field input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 0.8rem;
+    transition: border-color 0.2s;
+  }
+  .param-field input:focus { outline: none; border-color: var(--accent); }
+
+  /* RUN BUTTON */
+  #run-btn {
+    width: 100%; margin-top: 16px; padding: 14px;
+    background: var(--accent); color: #000; border: none; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 800;
+    cursor: pointer; letter-spacing: 0.02em;
+    transition: all 0.2s; position: relative; overflow: hidden;
+  }
+  #run-btn:hover { background: #00e87a; transform: translateY(-1px); }
+  #run-btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+  #run-btn .spinner {
+    display: none; width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* OUTPUT PANEL */
+  #output-img { width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain; background: #000; display: none; }
+  .output-placeholder {
+    height: 200px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 0.8rem; font-family: 'Space Mono', monospace;
+    border: 1px dashed var(--border); border-radius: 8px;
+  }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-top: 16px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 10px; text-align: center;
+  }
+  .stat-val { font-size: 1.4rem; font-weight: 800; color: var(--accent); font-family: 'Space Mono', monospace; }
+  .stat-lbl { font-size: 0.65rem; color: var(--muted); margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* GROUPS LIST */
+  #groups-list { margin-top: 16px; max-height: 200px; overflow-y: auto; }
+  .group-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .group-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .group-id { font-family: 'Space Mono', monospace; color: var(--text); flex: 1; }
+  .group-count { color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  /* JSON PANEL */
+  .json-area {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px; font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: #8b9dc3; max-height: 240px;
+    overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    line-height: 1.6;
+  }
+
+  /* FULL WIDTH PANELS */
+  .full-width { grid-column: 1 / -1; }
+
+  /* STATUS BAR */
+  #status-bar {
+    display: none; padding: 12px 18px;
+    font-size: 0.78rem; font-family: 'Space Mono', monospace;
+    border-top: 1px solid var(--border);
+  }
+  #status-bar.ok { background: rgba(0,255,136,0.05); color: var(--accent); }
+  #status-bar.err { background: rgba(255,64,64,0.05); color: var(--danger); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">RV</div>
+    <h1>Retail<span>Vision</span></h1>
+    <div class="badge">AI PIPELINE v1.0</div>
+  </header>
+
+  <!-- Pipeline steps diagram -->
+  <div class="pipeline-bar" id="pipeline-bar">
+    <div class="pipe-step" id="step-upload">① Upload</div>
+    <div class="pipe-arrow">──▶</div>
+    <div class="pipe-step" id="step-detect">② Detection</div>
+    <div class="pipe-arrow">──▶</div>
+    <div class="pipe-step" id="step-group">③ Grouping</div>
+    <div class="pipe-arrow">──▶</div>
+    <div class="pipe-step" id="step-viz">④ Visualization</div>
+    <div class="pipe-arrow">──▶</div>
+    <div class="pipe-step" id="step-resp">⑤ Response</div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot"></div>
+        <span class="panel-title">Input Image</span>
+      </div>
+      <div class="panel-body">
+        <div class="upload-zone" id="upload-zone">
+          <span class="upload-icon">🛒</span>
+          <p><strong>Drop shelf image here</strong></p>
+          <p>or click to browse</p>
+          <input type="file" id="file-input" accept="image/*">
+        </div>
+        <div id="preview-container">
+          <img id="preview-img" alt="Preview">
+        </div>
+
+        <div class="param-row">
+          <div class="param-field">
+            <label>CONF_THRESH</label>
+          <input type="number" id="conf-thresh" value="0.12" min="0.05" max="0.95" step="0.05">
+          </div>
+          <div class="param-field">
+            <label>DBSCAN EPS</label>
+          <input type="number" id="eps" value="0.9" min="0.1" max="1.0" step="0.05">
+          </div>
+        </div>
+
+        <button id="run-btn" onclick="runPipeline()" disabled>
+          <span id="btn-text">Run Pipeline →</span>
+          <div class="spinner" id="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot" style="background:var(--accent2)"></div>
+        <span class="panel-title">Annotated Output</span>
+      </div>
+      <div class="panel-body">
+        <div class="output-placeholder" id="output-placeholder">Awaiting pipeline run…</div>
+        <img id="output-img" alt="Output">
+        <div class="stats-row" id="stats-row" style="display:none">
+          <div class="stat-card">
+            <div class="stat-val" id="stat-det">–</div>
+            <div class="stat-lbl">Detections</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="stat-grp">–</div>
+            <div class="stat-lbl">Groups</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="stat-lat">–</div>
+            <div class="stat-lbl">Latency ms</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val" id="stat-size">–</div>
+            <div class="stat-lbl">Image px</div>
+          </div>
+        </div>
+      </div>
+      <div id="status-bar"></div>
+    </div>
+
+    <!-- GROUPS PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot" style="background:var(--accent3)"></div>
+        <span class="panel-title">Product Groups</span>
+      </div>
+      <div class="panel-body">
+        <div id="groups-empty" style="color:var(--muted);font-size:0.8rem;font-family:'Space Mono',monospace">
+          Groups will appear here after pipeline run.
+        </div>
+        <div id="groups-list"></div>
+      </div>
+    </div>
+
+    <!-- JSON PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot" style="background:#f9c74f"></div>
+        <span class="panel-title">JSON Response</span>
+      </div>
+      <div class="panel-body">
+        <div class="json-area" id="json-output">// Response JSON will appear here</div>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+</div><!-- /wrapper -->
+
+<script>
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.getElementById('upload-zone');
+const previewContainer = document.getElementById('preview-container');
+const previewImg = document.getElementById('preview-img');
+const runBtn = document.getElementById('run-btn');
+const btnText = document.getElementById('btn-text');
+const spinner = document.getElementById('spinner');
+
+let selectedFile = null;
+
+// Drag & drop
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) handleFile(f);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(f) {
+  selectedFile = f;
+  const url = URL.createObjectURL(f);
+  previewImg.src = url;
+  uploadZone.style.display = 'none';
+  previewContainer.style.display = 'block';
+  runBtn.disabled = false;
+  setStep(1);
+}
+
+function setStep(active) {
+  const steps = ['step-upload','step-detect','step-group','step-viz','step-resp'];
+  steps.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'pipe-step';
+    if (i < active) el.classList.add('done');
+    else if (i === active) el.classList.add('active');
+  });
+}
+
+async function runPipeline() {
+  if (!selectedFile) return;
+  runBtn.disabled = true;
+  btnText.style.display = 'none';
+  spinner.style.display = 'block';
+  setStep(1);
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+  formData.append('conf_thresh', document.getElementById('conf-thresh').value);
+  formData.append('eps', document.getElementById('eps').value);
+
+  const statusBar = document.getElementById('status-bar');
+
+  try {
+    setStep(2);
+    const resp = await fetch('/pipeline', { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    setStep(4);
+
+    if (data.status === 'ok') {
+      // Output image
+      const outputImg = document.getElementById('output-img');
+      document.getElementById('output-placeholder').style.display = 'none';
+      outputImg.src = 'data:image/jpeg;base64,' + data.visualization.image_base64;
+      outputImg.style.display = 'block';
+
+      // Stats
+      document.getElementById('stats-row').style.display = 'grid';
+      document.getElementById('stat-det').textContent = data.num_detections;
+      document.getElementById('stat-grp').textContent = data.num_groups;
+      document.getElementById('stat-lat').textContent = Math.round(data.latency.total_ms);
+      document.getElementById('stat-size').textContent =
+        data.image_size.width + '×' + data.image_size.height;
+
+      // Groups
+      const groupsList = document.getElementById('groups-list');
+      document.getElementById('groups-empty').style.display = 'none';
+      groupsList.innerHTML = '';
+      const visGroups = data.groups.filter(g => g.group_label >= 0);
+      visGroups.forEach(g => {
+        const div = document.createElement('div');
+        div.className = 'group-item';
+        div.innerHTML = `
+          <div class="group-swatch" style="background:${g.color_hex}"></div>
+          <span class="group-id">${g.group_id}</span>
+          <span class="group-count">${g.member_count} items</span>`;
+        groupsList.appendChild(div);
+      });
+
+      // JSON (truncated for display)
+      const display = JSON.parse(JSON.stringify(data));
+      if (display.visualization) display.visualization.image_base64 = '[base64 truncated]';
+      document.getElementById('json-output').textContent = JSON.stringify(display, null, 2);
+
+      statusBar.style.display = 'block';
+      statusBar.className = 'ok';
+      statusBar.textContent = `✓ Pipeline complete · ${data.latency.total_ms}ms · saved: ${data.visualization.saved_path || 'N/A'}`;
+      setStep(5);
+
+    } else {
+      throw new Error(data.message || 'Unknown error');
+    }
+
+  } catch (err) {
+    statusBar.style.display = 'block';
+    statusBar.className = 'err';
+    statusBar.textContent = '✗ Error: ' + err.message;
+    document.getElementById('json-output').textContent = '// Error: ' + err.message;
+    setStep(0);
+  } finally {
+    runBtn.disabled = false;
+    btnText.style.display = 'block';
+    spinner.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>
